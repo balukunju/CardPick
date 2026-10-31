@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "robinhood-gold",
+      "name": "Robinhood Gold",
+      "issuer": "Robinhood",
+      "rewardType": "cashback",
+      "rules": [
+        {
+          "id": "everything",
+          "label": "3% cash back on everything",
+          "earn": { "kind": "cashback", "centsPerDollar": 3 }
+        }
+      ]
+    },
+    {
+      "id": "chase-sapphire-reserve",
+      "name": "Chase Sapphire Reserve",
+      "issuer": "Chase",
+      "rewardType": "points",
+      "rules": [
+        {
+          "id": "lyft",
+          "label": "5x Lyft through September 30, 2027",
+          "merchants": ["Lyft"],
+          "earn": { "kind": "points", "pointsPerDollar": 5 },
+          "expires": "2027-09-30"
+        },
+        {
+          "id": "peloton",
+          "label": "10x Peloton equipment over $150 through December 31, 2027",
+          "merchants": ["Peloton"],
+          "earn": { "kind": "points", "pointsPerDollar": 10 },
+          "expires": "2027-12-31",
+          "minimumSpend": 150
+        },
+        {
+          "id": "chase-travel",
+          "label": "8x Chase Travel",
+          "merchants": ["Chase Travel"],
+          "earn": { "kind": "points", "pointsPerDollar": 8 }
+        },
+        {
+          "id": "dining",
+          "label": "3x dining",
+          "categories": ["dining"],
+          "earn": { "kind": "points", "pointsPerDollar": 3 }
+        },
+        {
+          "id": "flights-hotels-direct",
+          "label": "4x flights and hotels booked direct",
+          "categories": ["travel"],
+          "earn": { "kind": "points", "pointsPerDollar": 4 }
+        },
+        {
+          "id": "base",
+          "label": "1x everything else",
+          "earn": { "kind": "points", "pointsPerDollar": 1 }
+        }
+      ]
+    }
+  ]
+}
