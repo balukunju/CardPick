@@ -44,7 +44,7 @@ private enum LivePick {
 }
 
 struct CardPickShortcuts: AppShortcutsProvider {
-    static var shortcutTileColor: ShortcutTileColor = .green
+    static var shortcutTileColor: ShortcutTileColor = .teal
 
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
