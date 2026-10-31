@@ -6,21 +6,21 @@ enum CategorySelection: Hashable {
     case manual(RewardCategory)
 }
 
-enum LocationProblem: Equatable {
-    case needsPermissionInApp
-    case denied
-    case unavailable
-}
-
 enum CardAdvice {
     static func recommendation(
         catalog: CardCatalog,
         place: LocatedPlace?,
         selection: CategorySelection,
         valuation: PointValuation,
+        allowFallback: Bool,
         on day: Day = .today()
     ) -> Recommendation? {
-        guard let context = purchaseContext(place: place, selection: selection, on: day) else {
+        guard let context = purchaseContext(
+            place: place,
+            selection: selection,
+            on: day,
+            allowFallback: allowFallback
+        ) else {
             return nil
         }
         return BestCardPicker(catalog: catalog).recommend(context: context, valuation: valuation)
@@ -40,7 +40,8 @@ enum CardAdvice {
     private static func purchaseContext(
         place: LocatedPlace?,
         selection: CategorySelection,
-        on day: Day
+        on day: Day,
+        allowFallback: Bool
     ) -> PurchaseContext? {
         switch selection {
         case .manual(let category):
@@ -54,13 +55,23 @@ enum CardAdvice {
                 matchMerchants: false
             )
         case .detected:
-            guard let place else { return nil }
+            if let place {
+                let named = place.hasPlaceIdentity
+                return PurchaseContext(
+                    category: place.rewardCategory,
+                    merchant: named ? place.name : nil,
+                    spend: nil,
+                    on: day,
+                    matchMerchants: named
+                )
+            }
+            guard allowFallback else { return nil }
             return PurchaseContext(
-                category: place.rewardCategory,
-                merchant: place.name,
+                category: .other,
+                merchant: nil,
                 spend: nil,
                 on: day,
-                matchMerchants: true
+                matchMerchants: false
             )
         }
     }
@@ -83,6 +94,24 @@ final class RecommendModel: ObservableObject {
         } catch {
             loadError = "The card list bundled with CardPick could not be read."
         }
+        PlaceLocator.shared.onResolvedFix = { [weak self] _ in
+            guard let self, !self.isLocating else { return }
+            guard self.place == nil || self.locationProblem == .unavailable else { return }
+            self.refresh()
+        }
+        PlaceLocator.shared.onAuthorizationChange = { [weak self] status in
+            guard let self, !self.isLocating else { return }
+            switch status {
+            case .authorizedAlways, .authorizedWhenInUse:
+                if self.locationProblem == .denied || self.locationProblem == .needsPermissionInApp {
+                    self.refresh()
+                }
+            case .denied, .restricted:
+                self.locationProblem = .denied
+            default:
+                break
+            }
+        }
     }
 
     func refresh() {
@@ -91,37 +120,30 @@ final class RecommendModel: ObservableObject {
         isLocating = true
         locationProblem = nil
         Task {
-            do {
-                let located = try await PlaceLocator.shared.locate(promptIfNeeded: true)
-                guard currentRequest == self.requestID else { return }
-                place = located
-                locationProblem = nil
-            } catch let error as PlaceError {
-                guard currentRequest == self.requestID else { return }
-                locationProblem = problem(for: error)
-            } catch {
-                guard currentRequest == self.requestID else { return }
-                locationProblem = .unavailable
+            let lookup = await PlaceLocator.shared.locate(promptIfNeeded: true)
+            guard currentRequest == self.requestID else { return }
+            if let found = lookup.place {
+                place = found
             }
+            locationProblem = lookup.problem
             isLocating = false
         }
     }
 
     func recommendation(valuation: PointValuation) -> Recommendation? {
         guard let catalog else { return nil }
+        let manual: Bool
+        if case .manual = selection {
+            manual = true
+        } else {
+            manual = false
+        }
         return CardAdvice.recommendation(
             catalog: catalog,
             place: place,
             selection: selection,
-            valuation: valuation
+            valuation: valuation,
+            allowFallback: manual || !isLocating
         )
-    }
-
-    private func problem(for error: PlaceError) -> LocationProblem {
-        switch error {
-        case .needsPermissionInApp: .needsPermissionInApp
-        case .denied: .denied
-        case .unavailable: .unavailable
-        }
     }
 }

@@ -43,7 +43,9 @@ A free Personal Team provisioning profile expires after 7 days. Run the app from
 
 The first build does not download anything. CardPickCore is the local folder `Packages/CardPickCore`.
 
-You can also run in the Simulator. Use **Features → Location → Custom Location** (or a city run) so MapKit has a coordinate to search. The Action Button path is only on a real iPhone.
+You can also run in the Simulator. The Simulator starts with no location (**Features → Location → None**). CardPick waits about 12 seconds, then stops and recommends a card for Other, with Retry. It does not spin forever.
+
+To search a real place, use the Simulator menu: **Features → Location**, then a city (for example Apple) or **Custom Location**. Come back to CardPick and tap Retry. The Action Button path is only on a real iPhone.
 
 ## Action Button and Siri
 

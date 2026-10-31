@@ -15,31 +15,32 @@ struct WhichCardIntent: AppIntent {
 @MainActor
 private enum LivePick {
     static func spokenLine() async -> String {
-        do {
-            let place = try await PlaceLocator.shared.locate(promptIfNeeded: false)
-            guard let catalog = try? CardCatalog.bundled() else {
-                return "CardPick couldn't read the card list."
-            }
-            guard let recommendation = CardAdvice.recommendation(
-                catalog: catalog,
-                place: place,
-                selection: .detected,
-                valuation: PointValueStore.storedValuation()
-            ) else {
-                return "CardPick has no cards to compare."
-            }
-            var line = CardAdvice.dialogLine(for: recommendation, placeName: place.name)
-            if place.name == nil, place.poiCategoryRaw == nil {
-                line += " No place name was found nearby."
-            }
-            return line
-        } catch PlaceError.needsPermissionInApp {
-            return "Open CardPick and allow location, then try again."
-        } catch PlaceError.denied {
-            return "Allow location access for CardPick in Settings, then try again."
-        } catch {
-            return "CardPick couldn't read your location. Open the app and try again."
+        let lookup = await PlaceLocator.shared.locate(promptIfNeeded: false)
+        switch lookup.problem {
+        case .denied, .needsPermissionInApp where lookup.place == nil:
+            return "Location permission denied. Allow location for CardPick in Settings, then try again."
+        case .unavailable where lookup.place == nil:
+            return "Couldn't get your location. Open CardPick and try again."
+        default:
+            break
         }
+        guard let catalog = try? CardCatalog.bundled() else {
+            return "CardPick couldn't read the card list."
+        }
+        guard let recommendation = CardAdvice.recommendation(
+            catalog: catalog,
+            place: lookup.place,
+            selection: .detected,
+            valuation: PointValueStore.storedValuation(),
+            allowFallback: true
+        ) else {
+            return "CardPick has no cards to compare."
+        }
+        var line = CardAdvice.dialogLine(for: recommendation, placeName: lookup.place?.name)
+        if lookup.problem == .noPlace || lookup.place?.hasPlaceIdentity != true {
+            line += " No place found nearby."
+        }
+        return line
     }
 }
 

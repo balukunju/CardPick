@@ -57,7 +57,7 @@ struct RecommendView: View {
         } else if model.isLocating {
             locatingCard
         }
-        if let place = model.place {
+        if let place = model.place, place.hasPlaceIdentity {
             placeCard(place)
         }
         categoryPicker
@@ -75,29 +75,49 @@ struct RecommendView: View {
         switch model.locationProblem {
         case .denied, .needsPermissionInApp:
             infoCard(
-                title: "Location is off",
-                message: model.place == nil
-                    ? "Allow location while using CardPick, or pick a category below."
-                    : "Location is off. Showing the last place CardPick found."
+                title: "Location permission denied",
+                message: "Allow location while using CardPick, or pick a category. \(fallbackNote)"
             )
-            if model.place == nil {
-                Button("Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        openURL(url)
-                    }
-                }
-                .buttonStyle(FillButtonStyle())
-            }
+            settingsButton
         case .unavailable:
             infoCard(
-                title: model.place == nil ? "Location unavailable" : "Couldn't refresh",
-                message: model.place == nil
-                    ? "CardPick couldn't read a location fix. Try refresh, or pick a category."
-                    : "Showing the last place CardPick found."
+                title: "Couldn't get your location",
+                message: model.place?.hasPlaceIdentity == true
+                    ? "Showing the last place CardPick found. \(fallbackNote)"
+                    : "On the Simulator, choose Features → Location and pick a city, then tap Retry. \(fallbackNote)"
+            )
+        case .noPlace:
+            infoCard(
+                title: "No place found nearby",
+                message: "Pick a category if this guess is wrong. \(fallbackNote)"
             )
         case nil:
             EmptyView()
         }
+    }
+
+    private var settingsButton: some View {
+        Button("Open Settings") {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                openURL(url)
+            }
+        }
+        .font(.headline)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .foregroundStyle(Palette.accent)
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Palette.accent, lineWidth: 1)
+        }
+        .accessibilityLabel("Open Settings")
+    }
+
+    private var fallbackNote: String {
+        if case .manual(let category) = model.selection {
+            return "The recommendation uses \(category.displayName)."
+        }
+        return "The recommendation uses Other."
     }
 
     private var locatingCard: some View {
@@ -217,20 +237,28 @@ struct RecommendView: View {
             model.refresh()
         } label: {
             if model.isLocating {
-                ProgressView()
-                    .tint(Palette.accentInk)
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .tint(Palette.accentInk)
+                    Text("Finding place…")
+                }
+            } else if model.locationProblem != nil {
+                Text("Retry")
             } else {
                 Text("Refresh")
             }
         }
         .buttonStyle(FillButtonStyle())
         .disabled(model.isLocating)
-        .accessibilityLabel("Refresh location")
+        .accessibilityLabel(model.locationProblem == nil ? "Refresh location" : "Retry location")
     }
 
     private var detectedMenuTitle: String {
-        if let place = model.place {
+        if let place = model.place, place.hasPlaceIdentity {
             return "Detected · \(place.rewardCategory.displayName)"
+        }
+        if !model.isLocating {
+            return "Detected · Other"
         }
         return "Detected"
     }
